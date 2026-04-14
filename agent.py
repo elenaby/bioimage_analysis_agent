@@ -4,9 +4,16 @@ from smolagents.models import OpenAIModel
 from tools.segmentation import segment_image
 from tools.colorize import color_instances
 
+import json
+from openai import OpenAI
 
-# ✅ Proper model object
-model = OpenAIModel(model_id="gpt-4.1-mini")
+
+# ⚠️ smolagents model not used for LLM calls (kept for future)
+model = OpenAIModel(
+    model_id="llama3",
+    base_url="http://127.0.0.1:11434/v1",
+    api_key="ollama"
+)
 
 agent = CodeAgent(
     tools=[segment_image, color_instances],
@@ -14,69 +21,80 @@ agent = CodeAgent(
 )
 
 
-# 🔍 Simple intent detection (reliable)
-def detect_intent(user_input: str):
-    text = user_input.lower()
-
-    if any(word in text for word in ["segment", "detect", "separate", "identify"]):
-        return "segment"
-
-    if any(word in text for word in ["color", "label", "instance"]):
-        return "color"
-
-    return "unknown"
+# ✅ Direct Ollama client (this is what actually works)
+client = OpenAI(
+    base_url="http://127.0.0.1:11434/v1",
+    api_key="ollama"
+)
 
 
 def run_agent(user_input: str, image_path: str):
     print("\n=== RUN_AGENT START ===")
     print("User input:", user_input)
 
-    intent = detect_intent(user_input)
-    print("Detected intent:", intent)
+    # 🧠 LLM extracts structured intent
+    decision_prompt = f"""
+User request: {user_input}
 
-    # 🔥 PRIMARY PATH (guaranteed execution)
-    if intent == "segment":
-        print(">>> Running segmentation tool directly")
+Extract the task and return JSON ONLY:
+
+{{
+  "task": "segment" OR "color",
+  "color": "none" OR "random" OR a color name like "pink", "blue", "green"
+}}
+
+Rules:
+- segmentation only → task = segment
+- colorization → task = color
+- if user mentions a color → include it
+- if no color specified → use "random"
+
+Examples:
+- "segment image" → {{"task": "segment", "color": "none"}}
+- "color nuclei" → {{"task": "color", "color": "random"}}
+- "assign pink shades" → {{"task": "color", "color": "pink"}}
+
+Return ONLY JSON.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama3",
+            messages=[{"role": "user", "content": decision_prompt}]
+        )
+
+        raw_output = response.choices[0].message.content
+        print("LLM raw output:", raw_output)
+
+        parsed = json.loads(raw_output)
+
+        task = parsed.get("task", "segment")
+        color_mode = parsed.get("color", "none")
+
+    except Exception as e:
+        print("❌ LLM ERROR:", str(e))
+        task = "segment"
+        color_mode = "none"
+
+    # 🔥 Safety override (important)
+    if "color" in user_input.lower():
+        task = "color"
+
+    print("Final task:", task)
+    print("Color mode:", color_mode)
+
+    # 🔥 EXECUTION (deterministic)
+    if task == "color":
+        print(">>> Running segmentation + colorization")
 
         mask_path = segment_image(image_path)
 
-        # If user also wants coloring
-        if any(word in user_input.lower() for word in ["color", "instance", "label"]):
-            print(">>> Running colorization tool")
-            result = color_instances(mask_path)
-            print("Final result:", result)
-            return result
+        # Pass color mode to tool
+        return color_instances(mask_path, color_mode)
 
-        print("Final result:", mask_path)
-        return mask_path
+    elif task == "segment":
+        print(">>> Running segmentation only")
+        return segment_image(image_path)
 
-    # 🤖 FALLBACK: use LLM only if needed
-    print(">>> Using LLM fallback")
-
-    prompt = f"""
-You are a pathology AI assistant.
-
-Available tools:
-- segment_image(image_path)
-- color_instances(mask_path)
-
-Rules:
-- You MUST use tools
-- DO NOT explain anything
-- ONLY return the final image path
-
-User request: {user_input}
-Image path: {image_path}
-"""
-
-    result = agent.run(prompt)
-
-    print("=== AGENT RAW OUTPUT ===")
-    print(result)
-
-    # Safety cleanup
-    if isinstance(result, str):
-        return result.strip()
-
-    # fallback safety
-    return "outputs/mask.png"
+    print("⚠️ fallback segmentation")
+    return segment_image(image_path)

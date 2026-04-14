@@ -70,3 +70,7 @@ async def chat(
             },
             status_code=500
         )
+    
+
+#to run
+# uvicorn app:app --reload
