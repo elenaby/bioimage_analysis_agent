@@ -74,3 +74,4 @@ async def chat(
 
 #to run
 # uvicorn app:app --reload
+#ctrl C - stop
