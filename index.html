@@ -1,36 +1,215 @@
 <!DOCTYPE html>
+
 <html>
 <head>
-    <title>Pathology Agent</title>
-</head>
-<body>
-    <h2>Pathology Agent Chat</h2>
-
-    <input type="file" id="file"><br><br>
-    <input type="text" id="message" placeholder="Enter command"><br><br>
-
-    <button onclick="send()">Run</button>
-
-    <h3>Result:</h3>
-    <img id="result" width="400"/>
-
-    <script>
-        async function send() {
-            const file = document.getElementById("file").files[0];
-            const message = document.getElementById("message").value;
-
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("message", message);
-
-            const response = await fetch("/chat", {
-                method: "POST",
-                body: formData
-            });
-
-            const blob = await response.blob();
-            document.getElementById("result").src = URL.createObjectURL(blob);
+    <title>Pathology Agent UI</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
         }
-    </script>
+
+
+    /* LEFT: IMAGE VIEWER */
+    #left {
+        width: 70%;
+        background: #111;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #left img {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    /* RIGHT: PANEL */
+    #right {
+        width: 30%;
+        display: flex;
+        flex-direction: column;
+        border-left: 2px solid #ccc;
+        background: #f5f5f5;
+    }
+
+    /* WELCOME */
+    #welcome {
+        padding: 15px;
+        border-bottom: 1px solid #ccc;
+        background: #ffffff;
+    }
+
+    #welcome h2 {
+        margin: 0 0 10px 0;
+    }
+
+    #welcome p {
+        font-size: 14px;
+        margin: 5px 0;
+    }
+
+    /* CHAT */
+    #chat {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+    }
+
+    .message {
+        margin-bottom: 10px;
+    }
+
+    .user {
+        color: blue;
+    }
+
+    .system {
+        color: green;
+    }
+
+    /* CONTROLS */
+    #controls {
+        padding: 10px;
+        border-top: 1px solid #ccc;
+        background: #fff;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        box-sizing: border-box;
+    }
+
+    input[type="file"] {
+        margin-top: 5px;
+    }
+
+    button {
+        margin-top: 10px;
+        padding: 10px;
+        width: 100%;
+        cursor: pointer;
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+<!-- LEFT PANEL -->
+
+<div id="left">
+    <!-- ✅ FIX: default welcome image -->
+    <img id="image" src="/static/welcome.png" alt="Welcome image" style="opacity:0.9;">
+</div>
+
+<!-- RIGHT PANEL -->
+
+<div id="right">
+
+```
+<!-- WELCOME -->
+<div id="welcome">
+    <h2>🔬 Pathology Agent</h2>
+    <p>Interact with AI-powered pathology analysis.</p>
+    <p>
+        <b>Instructions:</b><br>
+        1. Upload an image<br>
+        2. Type a command (e.g. <i>"segment"</i>, <i>"color nuclei pink"</i>)<br>
+        3. Click <b>Send</b>
+    </p>
+</div>
+
+<!-- CHAT -->
+<div id="chat"></div>
+
+<!-- CONTROLS -->
+<div id="controls">
+    <input type="file" id="fileInput" accept="image/png, image/jpeg">
+    <input type="text" id="userInput" placeholder="Type command...">
+    <button onclick="send()">Send</button>
+</div>
+```
+
+</div>
+
+<script>
+async function send() {
+    const input = document.getElementById("userInput").value;
+    const file = document.getElementById("fileInput").files[0];
+    const chat = document.getElementById("chat");
+
+    if (!file) {
+        alert("Please upload an image first.");
+        return;
+    }
+
+    if (!input) {
+        alert("Please enter a command.");
+        return;
+    }
+
+    // Show user message
+    chat.innerHTML += `<div class="message user"><b>You:</b> ${input}</div>`;
+
+    // Show loading message
+    const loadingId = Date.now();
+    chat.innerHTML += `<div id="loading-${loadingId}" class="message system">⏳ Processing...</div>`;
+
+    const formData = new FormData();
+    formData.append("message", input);
+    formData.append("file", file);
+
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        // Remove loading message
+        document.getElementById(`loading-${loadingId}`).remove();
+
+        if (data.error) {
+            chat.innerHTML += `<div class="message system">❌ Error: ${data.error}</div>`;
+            return;
+        }
+
+        // Update image
+        const img = document.getElementById("image");
+        img.style.opacity = 0.5;
+        img.src = data.result + "?t=" + new Date().getTime();
+
+        setTimeout(() => {
+            img.style.opacity = 1;
+        }, 200);
+
+        // System message
+        chat.innerHTML += `<div class="message system">✅ Image updated</div>`;
+
+        chat.scrollTop = chat.scrollHeight;
+
+    } catch (err) {
+        chat.innerHTML += `<div class="message system">❌ Request failed</div>`;
+    }
+
+    document.getElementById("userInput").value = "";
+}
+
+// Enter key support
+document.getElementById("userInput")
+.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        send();
+    }
+});
+</script>
+
 </body>
 </html>

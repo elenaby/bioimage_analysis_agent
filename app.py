@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 import shutil
 import os
 import uuid
@@ -8,13 +9,27 @@ from agent import run_agent
 
 app = FastAPI()
 
-# Ensure outputs folder exists
-os.makedirs("outputs", exist_ok=True)
+# 📁 Base directory (CRITICAL FIX)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+
+# 📁 Ensure folders exist
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# 🌐 Serve static files (welcome image)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# 🌐 Serve generated outputs
+app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    with open("index.html") as f:
+    index_path = os.path.join(BASE_DIR, "index.html")
+    with open(index_path, "r") as f:
         return f.read()
 
 
@@ -24,8 +39,8 @@ async def chat(
     file: UploadFile = File(...)
 ):
     try:
-        # 🔹 Create unique filename (avoid overwrite bugs)
-        upload_path = f"temp_{uuid.uuid4()}.png"
+        # 🔹 Create unique filename
+        upload_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4()}.png")
 
         # Save uploaded image
         with open(upload_path, "wb") as buffer:
@@ -50,6 +65,10 @@ async def chat(
                 status_code=500
             )
 
+        # Ensure absolute path
+        if not os.path.isabs(result_path):
+            result_path = os.path.join(BASE_DIR, result_path)
+
         if not os.path.exists(result_path):
             return JSONResponse(
                 content={
@@ -59,10 +78,26 @@ async def chat(
                 status_code=500
             )
 
-        # ✅ Return image
-        return FileResponse(result_path, media_type="image/png")
+        # Convert to URL path (important for frontend)
+        relative_path = os.path.relpath(result_path, OUTPUT_DIR)
+        url_path = f"/outputs/{relative_path}"
+
+        # 🧹 Cleanup temp file
+        try:
+            if os.path.exists(upload_path):
+                os.remove(upload_path)
+        except Exception as cleanup_error:
+            print("Cleanup warning:", cleanup_error)
+
+        # ✅ Return URL path
+        return JSONResponse(
+            content={
+                "result": url_path
+            }
+        )
 
     except Exception as e:
+        print("❌ SERVER ERROR:", str(e))
         return JSONResponse(
             content={
                 "error": "Server error",
@@ -70,8 +105,6 @@ async def chat(
             },
             status_code=500
         )
-    
-
 #to run
 # uvicorn app:app --reload
 #ctrl C - stop
