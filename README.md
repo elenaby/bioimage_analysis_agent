@@ -1,90 +1,94 @@
 # 🧠 LLM Agents for Image Analysis Pipelines
 
-This repository explores how **Large Language Model (LLM) agents** can enhance and orchestrate **image analysis pipelines**, with a focus on modularity, automation, and interpretability.
+This repository explores how **Large Language Model (LLM) agents** can enhance and orchestrate **image analysis pipelines**, combining intelligent decision-making with deterministic image processing tools.
 
-The project is inspired by and follows concepts from the Hugging Face course:
+The work is inspired by the Hugging Face course:
 👉 https://huggingface.co/learn/agents-course
 
 ---
 
 ## 🚀 Overview
 
-Traditional image analysis pipelines are often:
+Classical image analysis pipelines are often rigid and require manual orchestration of multiple steps.
+This project demonstrates how **LLM agents can act as a control layer**, enabling:
 
-* Rigid
-* Hard to extend
-* Difficult to automate across multiple steps
-
-This project investigates how **LLM-powered agents** can:
-
-* Dynamically select tools
-* Chain together image processing operations
-* Interpret user instructions
-* Enable flexible and interactive workflows
+* Dynamic tool selection
+* Flexible pipeline execution
+* Natural language interaction with image analysis workflows
 
 ---
 
 ## 🤖 Agents Explored
 
-This repository experiments with multiple agent frameworks introduced in the course, including:
+Based on the Hugging Face Agents Course, this repository explores:
 
 * **SmolAgents**
 * **LangGraph**
 * **Transformers Agents (Hugging Face)**
-* **Tool-using LLM agents (ReAct-style)**
+* **ReAct-style tool-using agents**
 * **Code Agents**
 
-Each framework is evaluated for:
-
-* Ease of integration
-* Control over tool execution
-* Suitability for image analysis workflows
+The goal is to evaluate how each framework can support **modular and extensible image analysis pipelines**.
 
 ---
 
-## 🧪 Image Analysis Capabilities
+## 🧪 Image Analysis Tools
 
-All image processing functionality is built using **publicly available Python libraries**, including:
+All image processing capabilities rely on **deterministic, publicly available libraries**, such as:
 
 * `scikit-image (skimage)`
 * `OpenCV`
 * `NumPy`
 
-The LLM agents **do not perform image processing directly** — instead, they:
+The LLM does **not process images directly**. Instead, it:
 
-* Decide **which tool to use**
-* Determine **execution order**
-* Interpret **user intent**
-
-This separation ensures:
-
-* Deterministic, reproducible image processing
-* Flexible, intelligent pipeline orchestration
+* Chooses which tools to use
+* Decides execution order
+* Interprets user instructions
 
 ---
 
-## 🧩 Key Idea
+## 🧩 Key Concept
 
-> The LLM acts as a **decision-making layer**, not a computation engine.
+> The LLM acts as an **orchestrator**, not the computation engine.
 
-It translates natural language instructions into:
+This ensures:
 
-* Tool selection
-* Parameter configuration
-* Multi-step workflows
+* Reproducibility
+* Transparency
+* Separation between reasoning and execution
 
 ---
 
 ## 📁 Repository Structure
 
-```
+```bash
 .
-├── agents/              # Agent implementations (SmolAgents, LangGraph, etc.)
-├── tools/               # Image processing tools (wrapping skimage, OpenCV)
-├── pipelines/           # Example workflows
-├── api/                 # (Optional) FastAPI interface
-├── examples/            # Demo scripts
+├── agent.py            # Core agent logic (LLM + tool orchestration)
+├── app.py              # FastAPI backend
+├── tools/              # Image processing tools (e.g., colorize, filters)
+├── static/             # Frontend assets
+├── index.html          # Simple UI (chat interface)
+├── env.yml             # Environment configuration
+├── __pycache__/        # Python cache (ignored)
+├── .gitignore
 └── README.md
+```
+
+---
+
+## 🌐 System Architecture
+
+```
+User (Browser UI)
+        ↓
+FastAPI (app.py)
+        ↓
+LLM Agent (agent.py)
+        ↓
+Tool Execution (tools/)
+        ↓
+Image Processing Output
 ```
 
 ---
@@ -100,51 +104,81 @@ cd your-repo
 
 ### 2. Create environment
 
+Using conda:
+
 ```bash
-conda create -n llm-agents python=3.10
-conda activate llm-agents
+conda env create -f env.yml
+conda activate smolagent
 ```
 
-### 3. Install dependencies
+Or with pip (if preferred):
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Run an example
+---
+
+### 3. Start the FastAPI server
 
 ```bash
-python examples/run_agent.py
+uvicorn app:app --reload
 ```
 
 ---
 
-## 💡 Example Use Case
+### 4. Open the interface
 
-You can provide a prompt like:
+Go to your browser:
 
 ```
-"Load the image, detect tissue regions, and apply edge detection"
+http://127.0.0.1:8000
+```
+
+---
+
+## 💡 Example Usage
+
+You can interact with the system using natural language:
+
+```
+"Load the image and apply color normalization"
+"Detect edges and highlight structures"
 ```
 
 The agent will:
 
-1. Select appropriate tools
-2. Execute them in sequence
-3. Return results
+1. Interpret the request
+2. Select appropriate tools
+3. Execute the pipeline
 
 ---
 
-## 📚 Learning Resource
+## 🔬 Motivation
 
-This project is based on concepts from the Hugging Face Agents Course:
+This project explores how LLM agents can be applied to domains like:
+
+* Microscopy image analysis
+* Biomedical imaging pipelines
+
+Where workflows are often:
+
+* Multi-step
+* Tool-heavy
+* Hard to generalize
+
+---
+
+## 📚 Reference
+
+Hugging Face Agents Course:
 👉 https://huggingface.co/learn/agents-course
 
 ---
 
 ## 📌 Disclaimer
 
-This repository is for **research and experimentation purposes**.
-It demonstrates how LLM agents can assist—not replace—traditional image analysis pipelines.
+This repository is for **research and experimentation purposes only**.
+It demonstrates how LLM agents can assist in building flexible image analysis pipelines, but does not replace validated production workflows.
 
 ---
