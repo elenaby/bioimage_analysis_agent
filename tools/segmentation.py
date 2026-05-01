@@ -1,27 +1,24 @@
-from smolagents import tool
-import cv2
+# tools/segmentation.py
 
-@tool
-def segment_image(image_path: str) -> str:
+import cv2
+import numpy as np
+
+
+def segment(image: np.ndarray) -> np.ndarray:
     """
-    Segment the image and return a binary mask path.
+    Convert image to binary mask.
 
     Args:
-        image_path (str): Path to the input image.
+        image (np.ndarray): Input image (BGR)
 
     Returns:
-        str: Path to the generated mask image.
+        np.ndarray: Binary mask
     """
+    if image is None:
+        raise ValueError("Input image is None")
 
-    output_mask = "outputs/mask.png"
-
-    img = cv2.imread(image_path)
-    print("Image loaded:", img is not None)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     _, mask = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
 
-    cv2.imwrite(output_mask, mask)
-    
-
-    return output_mask
+    return mask
