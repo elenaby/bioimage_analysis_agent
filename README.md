@@ -1,6 +1,6 @@
-# 🧠 LLM Agents for Image Analysis Pipelines
+# 🧠 LLM Agent for Image Analysis Pipelines
 
-This repository explores how **Large Language Model (LLM) agents** can enhance and orchestrate **image analysis pipelines**, combining intelligent decision-making with deterministic image processing tools.
+This repository explores how **LLM agent** can enhance and orchestrate **image analysis pipelines**, combining intelligent decision-making with deterministic image processing tools.
 
 The work is inspired by the Hugging Face course:
 👉 https://huggingface.co/learn/agents-course
