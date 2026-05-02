@@ -14,51 +14,59 @@ class GraphState(TypedDict):
     palette: str
     expand: int
     result: Any
-    steps: list        # 👈 NEW: which steps to execute
-    message: str       # 👈 NEW: user input
+    steps: list
+    message: str
 
 
-# 2. Define nodes
+# 2. Nodes
 
 def segmentation_node(state: GraphState) -> GraphState:
-    """Step 1: always needed (produces mask)"""
+    """Always run first"""
     state["mask"] = segment(state["image"])
     return state
 
 
 def llm_node(state: GraphState) -> GraphState:
-    """Step 2: decide parameters + which steps to run"""
+    """Decide steps + parameters"""
     return choose_params(state)
 
 
 def morphology_node(state: GraphState) -> GraphState:
-    """Step 3: expand blobs"""
+    """Optional expansion"""
     state["mask"] = expand(state["mask"], state["expand"])
     return state
 
 
 def color_node(state: GraphState) -> GraphState:
-    """Step 4: color instances"""
+    """Optional coloring"""
     state["result"] = colorize(state["mask"], state["palette"])
     return state
 
 
-# 3. Routing logic (THIS is the key upgrade)
+# 3. Routing logic (FIXED + clearer)
 
 def route_after_llm(state: GraphState) -> str:
     steps = state.get("steps", [])
 
+    print("Routing after LLM:", steps)
+
     if "expand" in steps:
         return "morphology"
-    elif "color" in steps:
+
+    if "color" in steps:
         return "color"
-    else:
-        return "__end__"
+
+    return "__end__"
 
 
 def route_after_morphology(state: GraphState) -> str:
-    if "color" in state.get("steps", []):
+    steps = state.get("steps", [])
+
+    print("Routing after morphology:", steps)
+
+    if "color" in steps:
         return "color"
+
     return "__end__"
 
 
@@ -67,7 +75,7 @@ def route_after_morphology(state: GraphState) -> str:
 def build_graph():
     graph = StateGraph(GraphState)
 
-    # Nodes
+    # Register nodes
     graph.add_node("segmentation", segmentation_node)
     graph.add_node("llm", llm_node)
     graph.add_node("morphology", morphology_node)
@@ -76,7 +84,7 @@ def build_graph():
     # Entry point
     graph.set_entry_point("segmentation")
 
-    # Always start with segmentation → LLM
+    # Linear start
     graph.add_edge("segmentation", "llm")
 
     # 🔀 Conditional routing after LLM

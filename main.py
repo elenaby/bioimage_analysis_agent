@@ -29,8 +29,7 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    index_path = os.path.join(BASE_DIR, "index.html")
-    with open(index_path, "r") as f:
+    with open(os.path.join(BASE_DIR, "index.html"), "r") as f:
         return f.read()
 
 
@@ -42,14 +41,16 @@ async def chat(
     upload_path = None
 
     try:
+        print("\n=== NEW REQUEST ===")
+        print("Uploaded filename:", file.filename)
+        print("User message:", message)
+
         # 🔹 Save uploaded file
         upload_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4()}.png")
 
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        print("\n=== NEW REQUEST ===")
-        print("User message:", message)
         print("Saved image to:", upload_path)
 
         # 🔹 Load image
@@ -58,45 +59,71 @@ async def chat(
         if image is None:
             raise ValueError("Failed to read image")
 
-        # 🔹 Build graph state (UPDATED)
+        print("Image shape:", image.shape)
+
+        # 🔹 Build graph state
         state = {
             "image": image,
             "mask": None,
             "palette": None,
             "expand": None,
             "result": None,
-            "steps": None,        # 👈 required for dynamic routing
-            "message": message    # 👈 required for LLM
+            "steps": None,
+            "message": message
         }
 
         # 🔥 Run LangGraph
         result_state = graph.invoke(state)
 
-        # 🔁 Handle cases where color step was skipped
+        print("Graph returned keys:", list(result_state.keys()))
+
+        # 🔁 Determine output
         if result_state.get("result") is not None:
+            print("Using COLOR result")
             result_image = result_state["result"]
+
         elif result_state.get("mask") is not None:
-            # fallback: return mask if no color step
+            print("Using MASK result")
+
             mask = result_state["mask"]
-            result_image = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+            # ✅ Proper binary visualization
+            result_image = (mask > 0).astype("uint8") * 255
+            result_image = cv2.cvtColor(result_image, cv2.COLOR_GRAY2BGR)
+
         else:
             raise ValueError("No output generated")
 
-        # 🔹 Save output image
-        output_filename = f"result_{uuid.uuid4()}.png"
-        output_path = os.path.join(OUTPUT_DIR, output_filename)
+        # ==================================================
+        # 🆕 SAVE BEFORE IMAGE
+        # ==================================================
+        before_filename = f"before_{uuid.uuid4()}.png"
+        before_path = os.path.join(OUTPUT_DIR, before_filename)
 
-        success = cv2.imwrite(output_path, result_image)
+        cv2.imwrite(before_path, image)
+
+        # ==================================================
+        # 🆕 SAVE AFTER IMAGE
+        # ==================================================
+        after_filename = f"after_{uuid.uuid4()}.png"
+        after_path = os.path.join(OUTPUT_DIR, after_filename)
+
+        success = cv2.imwrite(after_path, result_image)
         if not success:
             raise IOError("Failed to save output image")
 
-        print("Saved output to:", output_path)
+        print("Saved BEFORE:", before_path)
+        print("Saved AFTER:", after_path)
 
-        # 🔁 Convert to URL
-        url_path = f"/outputs/{output_filename}"
+        # 🔁 Cache-busting URLs
+        before_url = f"/outputs/{before_filename}?t={uuid.uuid4()}"
+        after_url = f"/outputs/{after_filename}?t={uuid.uuid4()}"
 
         return JSONResponse(
-            content={"result": url_path}
+            content={
+                "before": before_url,
+                "after": after_url
+            }
         )
 
     except Exception as e:
@@ -110,7 +137,7 @@ async def chat(
         )
 
     finally:
-        # 🧹 Always cleanup temp file
+        # 🧹 Cleanup temp file
         try:
             if upload_path and os.path.exists(upload_path):
                 os.remove(upload_path)
